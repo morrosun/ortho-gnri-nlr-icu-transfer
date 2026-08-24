@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GNRI + NLR 术后 ICU 转入风险计算器</title>
+<style>
+  :root{ --blue:#2F5597; --red:#C00000; --green:#548235; --bg:#f7f9fc; --card:#fff; --line:#dfe4ee; }
+  *{ box-sizing:border-box; }
+  body{ font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif; margin:0; background:var(--bg); color:#1f2733; line-height:1.6; }
+  .wrap{ max-width:760px; margin:0 auto; padding:28px 18px 60px; }
+  h1{ font-size:21px; color:var(--blue); margin:0 0 4px; }
+  .sub{ color:#5a6678; font-size:13px; margin:0 0 20px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(20,40,80,.05); }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; }
+  @media(max-width:560px){ .grid{ grid-template-columns:1fr; } }
+  label{ display:block; font-size:13px; font-weight:bold; margin-bottom:6px; color:#33405a; }
+  input,select{ width:100%; padding:9px 10px; border:1px solid #c7cfdd; border-radius:7px; font-size:14px; font-family:inherit; }
+  input:focus,select:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 2px rgba(47,85,151,.15); }
+  button{ margin-top:18px; width:100%; background:var(--blue); color:#fff; border:0; border-radius:8px; padding:13px; font-size:15px; font-weight:bold; cursor:pointer; }
+  button:hover{ background:#264578; }
+  .result{ display:none; }
+  .prob{ font-size:40px; font-weight:bold; color:var(--blue); margin:2px 0 2px; }
+  .tag{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:12.5px; font-weight:bold; margin:3px 6px 3px 0; }
+  .t-red{ background:#fdeaea; color:var(--red); } .t-amb{ background:#fff3e0; color:#b26a00; }
+  .t-grn{ background:#eaf3e8; color:var(--green); } .t-blu{ background:#e9eefb; color:var(--blue); }
+  .note{ font-size:12px; color:#6b7787; margin-top:14px; border-top:1px dashed var(--line); padding-top:12px; }
+  code{ background:#eef1f7; padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  .formula{ font-size:13px; color:#33405a; background:#f0f3f9; border-radius:6px; padding:10px 12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GNRI + NLR 术后 ICU 转入风险计算器</h1>
+  <p class="sub">预测 ≥65 岁骨科手术患者术后需 ICU 级别监护的风险。
+  开发队列：MIMIC-IV + INSPIRE（n=5,466）；独立验证：单中心匹配病例对照（n=395，AUC 0.726）。</p>
+
+  <div class="card">
+    <div class="grid">
+      <div><label>性别</label>
+        <select id="sex"><option value="1">男</option><option value="0">女</option></select></div>
+      <div><label>年龄（岁）</label><input id="age" type="number" step="1" value="75"></div>
+      <div><label>身高（cm）</label><input id="hgt" type="number" step="0.1" value="165"></div>
+      <div><label>体重（kg）</label><input id="wgt" type="number" step="0.1" value="60"></div>
+      <div><label>白蛋白（g/L）</label><input id="alb" type="number" step="0.1" value="35"></div>
+      <div><label>NLR（中性粒/淋巴）</label><input id="nlr" type="number" step="0.01" value="3.0"></div>
+    </div>
+    <button onclick="calc()">计算风险</button>
+
+    <div class="result" id="out">
+      <div style="margin-top:18px">
+        <div class="prob"><span id="p">–</span>%</div>
+        <div style="font-size:13px;color:#5a6678">术后 ICU 转入的预测概率</div>
+      </div>
+      <div style="margin-top:12px">
+        <span class="tag t-blu" id="gnriTag">GNRI –</span>
+        <span class="tag t-blu" id="nlrTag">NLR –</span>
+        <span class="tag t-blu" id="bmiTag">BMI –</span>
+      </div>
+      <div class="formula" id="detail"></div>
+    </div>
+
+    <div class="note">
+      模型：<code>logit(p) = 1.767 − 0.093·GNRI + 0.027·NLR + 0.012·年龄 + 0.364·男 + 0.196·BMI</code>
+      （男=1，女=0；年龄按岁；BMI 按 kg/m²；GNRI、NLR 按每单位）。
+      GNRI = 1.489·白蛋白(g/L) + 41.7·(体重 / 理想体重)，理想体重按 Lorentz 公式。
+      <br><b>仅供研究使用。</b> 不能替代临床判断；绝对风险的外部验证尚待前瞻性研究。
+    </div>
+  </div>
+</div>
+
+<script>
+function lorentz(h, sex){ // 理想体重 (kg)
+  var d = (h - 150)/4;
+  return sex === 1 ? (h - 100 - d) : (h - 100 - 2*d);
+}
+function calc(){
+  var sex = parseInt(document.getElementById('sex').value);
+  var age = parseFloat(document.getElementById('age').value);
+  var h   = parseFloat(document.getElementById('hgt').value);
+  var w   = parseFloat(document.getElementById('wgt').value);
+  var alb = parseFloat(document.getElementById('alb').value);
+  var nlr = parseFloat(document.getElementById('nlr').value);
+  if([age,h,w,alb,nlr].some(function(v){ return isNaN(v) || v<=0; })){ alert('请输入有效的正数。'); return; }
+  var iw = lorentz(h, sex);
+  var bmi = w / Math.pow(h/100, 2);
+  var gnri = 1.489*alb + 41.7*(w/iw);
+  var logit = 1.767 - 0.093*gnri + 0.027*nlr + 0.012*age + 0.364*sex + 0.196*bmi;
+  var p = 1/(1+Math.exp(-logit)) * 100;
+  document.getElementById('p').textContent = p.toFixed(1);
+  var gcat, gcls;
+  if(gnri < 82){ gcat='重度 (<82)'; gcls='t-red'; }
+  else if(gnri < 92){ gcat='中度 (82–91)'; gcls='t-amb'; }
+  else if(gnri < 98){ gcat='轻度 (92–97)'; gcls='t-amb'; }
+  else { gcat='正常 (≥98)'; gcls='t-grn'; }
+  var ncat = nlr >= 2.806 ? '高 (≥2.806)' : '低 (<2.806)';
+  var ncls = nlr >= 2.806 ? 't-red' : 't-grn';
+  var gt = document.getElementById('gnriTag'); gt.textContent='GNRI '+gnri.toFixed(1)+' · '+gcat; gt.className='tag '+gcls;
+  var nt = document.getElementById('nlrTag');  nt.textContent='NLR '+nlr.toFixed(2)+' · '+ncat; nt.className='tag '+ncls;
+  var bt = document.getElementById('bmiTag');  bt.textContent='BMI '+bmi.toFixed(1)+' kg/m²'; bt.className='tag t-blu';
+  document.getElementById('out').style.display='block';
+}
+</script>
+</body>
+</html>

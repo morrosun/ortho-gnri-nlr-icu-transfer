@@ -1,0 +1,12 @@
+# Ignore generated outputs and local/sensitive files
+figures/
+results/
+data/local_validation.csv
+.workbuddy/
+*.tmp
+tmp_*
+.Rhistory
+.Rproj.user/
+.DS_Store
+~$*
+*.bak
