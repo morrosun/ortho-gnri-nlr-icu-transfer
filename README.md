@@ -76,7 +76,7 @@ p = 1 / (1 + exp(−logit))
 ```
 - `male = 1`, `female = 0`; age in years; BMI in kg/m²; GNRI and NLR per unit.
 - GNRI = 1.489·albumin(g/L) + 41.7·(weight / ideal-weight), ideal weight by Lorentz.
-- Web calculator (GitHub Pages): https://&lt;OWNER&gt;.github.io/ortho-gnri-nlr-icu-transfer/
+- Web calculator (GitHub Pages): https://morrosun.github.io/ortho-gnri-nlr-icu-transfer/
   (English `index.html`; Chinese `index_zh.html`). Pure frontend, no dependencies, works offline.
 
 ## License
